@@ -1,0 +1,56 @@
+The following provides the documentation for the `f_group_by(columns)` operation using a JSON schema. You need to find its suitable parameters similar to the given examples.
+
+Use the operation f_group_by to group rows by a specified column, counting the occurrences of each distinct value. Your output must be a valid JSON object with the following structure:
+{
+  "action": "f_group_by",
+  "args": {
+    "columns": ["<column_name>"]
+  }
+}
+
+Example 1:
+Table:
+/*
+col : Rank | Lane | Athlete | Country | Time 
+row 1 : 1 | 6 | Manjeet Kaur (IND) | IND | 52.17 
+row 2 : 2 | 5 | Olga Tereshkova (KAZ) | KAZ | 51.86 
+row 3 : 3 | 4 | Pinki Pramanik (IND) | IND | 53.06 
+row 4 : 4 | 1 | Tang Xiaoyin (CHN) | CHN | 53.66 
+row 5 : 5 | 8 | Marina Maslyonko (KAZ) | KAZ | 53.99 
+*/
+Question: tell me the number of athletes from India.
+The existing columns are: Rank, Lane, Athlete, Time, Country.
+Explanation: The question asks about the number of athletes from India. Each row represents an athlete. We group by the "Country" column to group athletes by country.
+Answer:
+{
+  "action": "f_group_by",
+  "args": {
+    "columns": ["Country"]
+  }
+}
+
+Example 2:
+Table:
+/*
+col : district | name | party | residence | first served
+row 1 : district 1 | nelson albano | dem | vineland | 2006
+row 2 : district 1 | robert andrzejczak | dem | middle twp. | 2013†
+row 3 : district 2 | john f. amodeo | rep | margate | 2008
+row 4 : district 2 | chris a. brown | rep | ventnor | 2012
+row 5 : district 3 | john j. burzichelli | dem | paulsboro | 2002
+*/
+Question: what is the number of districts that are democratic?
+The existing columns are: district, name, party, residence, first served.
+Explanation: Each row represents a district. We group by the "party" column to group districts by political affiliation.
+Answer:
+{
+  "action": "f_group_by",
+  "args": {
+    "columns": ["party"]
+  }
+}
+
+Now find the parameters for the following case, only compatible function parameters for `f_group_by` will be accepted.:
+\*
+{{ table }}*/
+Question: {{ question }}

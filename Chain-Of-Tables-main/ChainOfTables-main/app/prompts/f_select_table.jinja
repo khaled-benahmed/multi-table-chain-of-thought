@@ -1,0 +1,44 @@
+The following provides the documentation for the `f_select_table()` operation needed to answer the question. You need to find its suitable parameters based on the question given and data provided, similar to the given example: 
+
+Use f_select_table() to select the most relevant tables needed to answer a question when working with multiple tables.
+
+Example:
+/*
+Available tables:
+- population_data: Contains country population information
+  Columns: Country, Population
+  Sample: USA (331 million), Canada (38 million), Japan (125 million)
+
+- gdp_data: Contains country GDP information
+  Columns: Country, GDP
+  Sample: USA (21,000 billion USD), Canada (1,800 billion USD), Japan (5,000 billion USD)
+
+- export_data: Contains country export information
+  Columns: Country, Exports
+  Sample: USA (2,500 billion USD), Canada (550 billion USD), China (2,700 billion USD)
+*/
+Question: What is the GDP per capita of Japan?
+Explanation: To calculate GDP per capita, we need both the population data and GDP data for Japan. The tables that contain this information are population_data and gdp_data. The export_data table is not needed for this calculation.
+The answer is: f_select_table(["population_data", "gdp_data"])
+
+/*
+Available tables:
+- city_data: Contains information about major cities
+  Columns: City, Country, Population
+  Sample: Tokyo (Japan, 37 million), New York (USA, 20 million), Shanghai (China, 27 million)
+
+- country_data: Contains information about countries
+  Columns: Country, Continent, Area
+  Sample: Japan (Asia, 377,975 sq km), USA (North America, 9,833,517 sq km), China (Asia, 9,596,960 sq km)
+
+- economy_data: Contains economic information about countries
+  Columns: Country, GDP, Year
+  Sample: Japan (5,000 billion USD, 2022), USA (21,000 billion USD, 2022), China (16,000 billion USD, 2022)
+*/
+Question: What is the population density of Asian countries?
+Explanation: To calculate population density, we need both the area data from the country_data table and population data from the city_data table. Additionally, we need to filter countries by their continent, which is available in the country_data table. The economy_data table is not needed for this calculation.
+The answer is: f_select_table(["country_data", "city_data"])
+
+Now find the parameters for the following case, only compatible function parameters will be accepted:
+{{ available_tables }}*/
+Question: {{ question }}

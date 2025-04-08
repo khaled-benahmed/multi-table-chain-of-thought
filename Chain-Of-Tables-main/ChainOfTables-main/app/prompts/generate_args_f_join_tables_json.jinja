@@ -1,0 +1,64 @@
+The following provides the documentation for the `f_join_tables()` operation using a JSON schema. You need to find its suitable parameters based on the question given and data provided, similar to the given examples.
+
+The `f_join_tables()` operation combines data from two tables based on a common column. Your output must be a valid JSON object with the following structure:
+{
+  "action": "f_join_tables",
+  "args": {
+    "table1": "<table1_name>",
+    "table2": "<table2_name>",
+    "join_column": "<column_name>",
+    "result_table_name": "<new_table_name>"
+  }
+}
+
+Example 1:
+Available tables:
+/*
+- population_data:
+  Columns: Country, Population
+  Sample: USA (331 million), Canada (38 million), Japan (125 million)
+
+- gdp_data:
+  Columns: Country, GDP
+  Sample: USA (21,000 billion USD), Canada (1,800 billion USD), Japan (5,000 billion USD)
+*/
+Question: What is the GDP per capita for each country?
+Explanation: To calculate GDP per capita, we need both population and GDP data for each country. We should join the population_data and gdp_data tables using the common 'Country' column. The result can be stored in a new table named 'combined_data'.
+Answer:
+{
+  "action": "f_join_tables",
+  "args": {
+    "table1": "population_data",
+    "table2": "gdp_data",
+    "join_column": "Country",
+    "result_table_name": "combined_data"
+  }
+}
+
+Example 2:
+Available tables:
+/*
+- students:
+  Columns: Student ID, Name, Age
+  Sample: 101 (John, 20), 102 (Emma, 21), 103 (Michael, 19)
+
+- grades:
+  Columns: Student ID, Course, Grade
+  Sample: 101 (Math, A), 102 (Math, B), 101 (Physics, B)
+*/
+Question: What is the average grade of students over 20 years old?
+Explanation: To find the average grade of students over 20, we need to combine student age information with grade information. We should join the students and grades tables using the common 'Student ID' column. The result can be stored in a new table.
+Answer:
+{
+  "action": "f_join_tables",
+  "args": {
+    "table1": "students",
+    "table2": "grades",
+    "join_column": "Student ID",
+    "result_table_name": "student_grades"
+  }
+}
+
+Now find the parameters for the following case, only compatible function parameters will be accepted:
+{{ available_tables }}*/
+Question: {{ question }}

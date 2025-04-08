@@ -1,0 +1,68 @@
+The following provides the documentation for the `f_filter_table()` operation using a JSON schema. You need to find its suitable parameters based on the question given and data provided, similar to the given examples.
+
+The `f_filter_table()` operation selects rows from a table that meet specific criteria. Your output must be a valid JSON object with the following structure:
+{
+  "action": "f_filter_table",
+  "args": {
+    "table_name": "<table_name>",
+    "filter_conditions": [
+      {
+        "column": "<column_name>",
+        "operator": "=",
+        "value": "<filter_value>"
+      }
+    ]
+  }
+}
+
+Example 1:
+Available tables:
+/*
+- country_data:
+  Columns: Country, Continent, GDP
+  Sample: USA (North America, 21,000), Canada (North America, 1,800), Japan (Asia, 5,000), Germany (Europe, 4,000), France (Europe, 2,700)
+*/
+Question: What is the total GDP of European countries?
+Explanation: The question only concerns European countries. We need to filter the country_data table to keep only rows where the 'Continent' column equals 'Europe'. This removes non-European countries from consideration.
+Answer:
+{
+  "action": "f_filter_table",
+  "args": {
+    "table_name": "country_data",
+    "filter_conditions": [
+      {
+        "column": "Continent",
+        "operator": "=",
+        "value": "Europe"
+      }
+    ]
+  }
+}
+
+Example 2:
+Available tables:
+/*
+- employee_data:
+  Columns: Employee, Department, Salary, Years of Service
+  Sample: John (Sales, 75000, 5), Emma (Engineering, 95000, 3), Michael (Sales, 65000, 2), Sarah (Management, 110000, 8)
+*/
+Question: What is the average salary of employees in the Sales department?
+Explanation: The question asks about employees in the Sales department only. We need to filter the employee_data table to keep only rows where the 'Department' column equals 'Sales'.
+Answer:
+{
+  "action": "f_filter_table",
+  "args": {
+    "table_name": "employee_data",
+    "filter_conditions": [
+      {
+        "column": "Department",
+        "operator": "=",
+        "value": "Sales"
+      }
+    ]
+  }
+}
+
+Now find the parameters for the following case, only compatible function parameters will be accepted:
+{{ available_tables }}*/
+Question: {{ question }}

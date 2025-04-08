@@ -1,0 +1,29 @@
+The following provides the documentation for the `f_aggregate_table()` operation, which computes summary statistics on table data. You need to find its suitable parameters based on the question given and data provided, similar to the given example:
+
+Use f_aggregate_table(table_name, operation, column, result_table_name) to perform aggregation operations like sum, average, count, max, or min on a specific column.
+
+Example:
+/*
+Available tables:
+- gdp_data:
+  Columns: Country, GDP
+  Sample: USA (21,000), Canada (1,800), Japan (5,000), Germany (4,000), France (2,700)
+*/
+Question: What is the total GDP of all countries in the table?
+Explanation: The question asks for the sum of all GDP values. We need to apply the 'sum' operation to the 'GDP' column of the gdp_data table. The result can be stored in a new table named 'total_gdp'.
+The answer is: f_aggregate_table('gdp_data', 'sum', 'GDP', 'total_gdp')
+
+/*
+Available tables:
+- student_scores:
+  Columns: Student, Subject, Score
+  Sample: John (Math, 85), Emma (Math, 92), John (Physics, 78), Emma (Physics, 88)
+*/
+Question: What is the average Math score?
+Explanation: The question asks for the average score in the Math subject. We need to first filter for Math scores and then apply the 'avg' operation to the 'Score' column.
+The answer is: f_aggregate_table('student_scores', 'avg', 'Score', 'avg_math_score')
+
+Now find the parameters for the following case, only compatible function parameters will be accepted:
+{{ available_tables }}*/
+Question: {{ question }}
+Explanation:

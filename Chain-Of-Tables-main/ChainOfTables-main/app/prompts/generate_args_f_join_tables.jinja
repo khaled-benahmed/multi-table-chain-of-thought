@@ -1,0 +1,37 @@
+The following provides the documentation for the `f_join_tables()` operation, which combines data from multiple tables. You need to find its suitable parameters based on the question given and data provided, similar to the given example:
+
+Use f_join_tables(table1_name, table2_name, join_column, result_table_name) to combine data from two tables based on a common column.
+
+Example:
+/*
+Available tables:
+- population_data:
+  Columns: Country, Population
+  Sample: USA (331 million), Canada (38 million), Japan (125 million)
+
+- gdp_data:
+  Columns: Country, GDP
+  Sample: USA (21,000 billion USD), Canada (1,800 billion USD), Japan (5,000 billion USD)
+*/
+Question: What is the GDP per capita for each country?
+Explanation: To calculate GDP per capita, we need both population and GDP data for each country. We should join the population_data and gdp_data tables using the common 'Country' column. The result can be stored in a new table named 'combined_data'.
+The answer is: f_join_tables('population_data', 'gdp_data', 'Country', 'combined_data')
+
+/*
+Available tables:
+- students:
+  Columns: Student ID, Name, Age
+  Sample: 101 (John, 20), 102 (Emma, 21), 103 (Michael, 19)
+
+- grades:
+  Columns: Student ID, Course, Grade
+  Sample: 101 (Math, A), 102 (Math, B), 101 (Physics, B)
+*/
+Question: What is the average grade of students over 20 years old?
+Explanation: To find the average grade of students over 20, we need to combine student age information with grade information. We should join the students and grades tables using the common 'Student ID' column. The result can be stored in a new table.
+The answer is: f_join_tables('students', 'grades', 'Student ID', 'student_grades')
+
+Now find the parameters for the following case, only compatible function parameters will be accepted:
+{{ available_tables }}*/
+Question: {{ question }}
+Explanation:

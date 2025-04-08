@@ -1,0 +1,145 @@
+The following describes how to use the operation f_add_column() using a JSON schema.
+
+Use the operation f_add_column to add a new column to the table. The new column must have the same number of rows as the table.
+
+The JSON schema for this operation is as follows:
+{
+  "action": "f_add_column",
+  "args": {
+    "column_name": <string>,
+    "values": <array of strings>
+  }
+}
+
+The added column’s data type should be interpreted as follows:
+1. Numerical: strings representing numerical values that can be used in sorting or summing.
+2. Datetype: strings that describe a date, such as year, month, or day.
+3. String: any other textual data.
+
+Below are examples that illustrate how to construct the JSON object for f_add_column():
+
+Example 1:
+Table:
+/*
+col : Week | When | Kickoff | Opponent | Results; Final score | Results; Team record | Game site | Attendance
+row 1 : 1 | Saturday, April 13 | 7:00 p.m. | at Rhein Fire | W 27-21 | 1-0 | Rheinstadion | 32092
+row 2 : 2 | Saturday, April 20 | 7:00 p.m. | London Monarchs | W 37-3 | 2-0 | Waldstadion | 34186
+row 3 : 3 | Sunday, April 28 | 6:00 p.m. | at Barcelona Dragons | W 33-29 | 3-0 | Estadi Olímpic de Montjuïc | 17503
+*/
+Question: what is the date of the competition with highest attendance?
+Existing columns: "Week", "When", "Kickoff", "Opponent", "Results; Final score", "Results; Team record", "Game site", "Attendance".
+Explanation: The question asks for the date of the competition with the highest attendance. In order to answer, we extract the values from the "Attendance" column and create a new column "Attendance number" that contains the numerical values for each row.
+Answer (JSON object):
+{
+  "action": "f_add_column",
+  "args": {
+    "column_name": "Attendance number",
+    "values": ["32092", "34186", "17503"]
+  }
+}
+
+Example 2:
+Table:
+/*
+col : rank | lane | player | time
+row 1 : "" | 5 | olga tereshkova (kaz) | 51.86
+row 2 : "" | 6 | manjeet kaur (ind) | 52.17
+row 3 : "" | 3 | asami tanno (jpn) | 53.04
+*/
+Question: how many athletes are from japan?
+Existing columns: "rank", "lane", "player", "time".
+Explanation: To answer the question, we need to extract the country information from the "player" column and create a new column "country of athletes". The data type is string.
+Answer (JSON object):
+{
+  "action": "f_add_column",
+  "args": {
+    "column_name": "country of athletes",
+    "values": ["kaz", "ind", "jap"]
+  }
+}
+
+Example 3:
+Table:
+/*
+col : year | competition | venue | position | notes
+row 1 : 1991 | european junior championships | thessaloniki, greece | 10th | 4.90 m
+row 2 : 1992 | world junior championships | seoul, south korea | 1st | 5.45 m
+row 3 : 1996 | european indoor championships | stockholm, sweden | 14th (q) | 5.45 m
+*/
+Question: when did laurens place 1st?
+Existing columns: "year", "competition", "venue", "position", "notes".
+Explanation: To answer the question, we extract the values from the "position" column and create a new column "placing result" containing the numerical parts of the position for each row.
+Answer (JSON object):
+{
+  "action": "f_add_column",
+  "args": {
+    "column_name": "placing result",
+    "values": ["10", "1", "14"]
+  }
+}
+
+Example 4:
+Table:
+/*
+col : iso/iec standard | status | wg
+row 1 : iso/iec tr 19759 | published (2005) | 20
+row 2 : iso/iec 15288 | published (2008) | 7
+row 3 : iso/iec 12207 | published (2008) | 7
+*/
+Question: how many times the standards published in 2008?
+Existing columns: "iso/iec standard", "title", "status", "description", "wg".
+Explanation: To answer the question, we extract the year from the "status" column and create a new column "year of standard" for each row. The data type is datetype.
+Answer (JSON object):
+{
+  "action": "f_add_column",
+  "args": {
+    "column_name": "year of standard",
+    "values": ["2005", "2008", "2008"]
+  }
+}
+
+Example 5:
+Table:
+/*
+col : match | date | ground | opponent | score1 | pos. | pts. | gd
+row 1 : 1 | 15 august | a | bayer uerdingen | 3 – 0 | 1 | 2 | 3
+row 2 : 2 | 22 july | h | 1. fc kaiserslautern | 1 – 0 | 1 | 4 | 4
+row 3 : 4 | 29 september | h | dynamo dresden | 3 – 1 | 1 | 6 | 6
+*/
+Question: how many times did they play in august?
+Existing columns: "match", "date", "ground", "opponent", "score1", "pos.", "pts.", "gd".
+Explanation: To answer the question, we extract the month from the "date" column and create a new column "month" for each row. The data type is datetype.
+Answer (JSON object):
+{
+  "action": "f_add_column",
+  "args": {
+    "column_name": "month",
+    "values": ["august", "july", "september"]
+  }
+}
+
+Example 6:
+Table:
+/*
+table caption : 1984 u.s. open (golf)
+col : place | player | country | score | to par
+row 1 : 1 | hale irwin | united states | 68 + 68 = 136 | -4
+row 2 : 2 | fuzzy zoeller | united states | 71 + 66 = 137 | -3
+row 3 : t3 | david canipe | united states | 69 + 69 = 138 | -2
+*/
+Question: what is the score of david canipe of united states?
+Existing columns: "place", "player", "country", "score", "to par".
+Explanation: To answer the question, we extract the score from the "score" column and create a new column "score value" for each row. The data type is numerical.
+Answer (JSON object):
+{
+  "action": "f_add_column",
+  "args": {
+    "column_name": "score value",
+    "values": ["136", "137", "138"]
+  }
+}
+
+Now, find the parameters for the following case:
+\*
+{{ table }}*/
+Question: {{ question }}

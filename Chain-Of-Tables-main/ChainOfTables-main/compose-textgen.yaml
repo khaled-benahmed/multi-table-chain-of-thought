@@ -1,0 +1,22 @@
+version: '3.7'
+
+services:
+  text-generation:
+    image: ghcr.io/huggingface/text-generation-inference:latest
+    command: ["--model-id", "mistralai/Mixtral-8x7B-Instruct-v0.1", "--max-total-tokens", "2600", "--max-input-length", "2400"]
+    environment:
+      - HUGGING_FACE_HUB_TOKEN=${HUGGING_FACE_HUB_TOKEN}
+    ports:
+      - "6000:80"
+    volumes:
+      - /lyra/huggingface_tgi_data/data:/data
+    runtime: nvidia
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['4', '5', '6', '7']
+              capabilities: [gpu]
+    shm_size: '1g'

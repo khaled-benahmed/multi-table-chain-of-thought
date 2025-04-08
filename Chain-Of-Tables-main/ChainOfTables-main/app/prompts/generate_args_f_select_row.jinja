@@ -1,0 +1,55 @@
+The following describes how to use the operation `f_select_row(rows_nr)` using an example:
+
+Use f_select_row(rows_nr) to select relevant rows in the given table that support or oppose the statement. rows_nr is a list with the numerical indecies for the rows you want to select.
+Please use f_select_row([*]) to select all rows in the table.
+/*
+col : home team | home team score | away team | away team score | venue | crowd
+row 1 : st kilda | 13.12 (90) | melbourne | 13.11 (89) | moorabbin oval | 18836
+row 2 : south melbourne | 9.12 (66) | footscray | 11.13 (79) | lake oval | 9154
+row 3 : richmond | 20.17 (137) | fitzroy | 13.22 (100) | mcg | 27651
+row 4 : geelong | 17.10 (112) | collingwood | 17.9 (111) | kardinia park | 23108
+row 5 : north melbourne | 8.12 (60) | carlton | 23.11 (149) | arden street oval | 11271
+row 6 : hawthorn | 15.16 (106) | essendon | 12.15 (87) | vfl park | 36749
+*/
+question : what is the away team with the highest score?
+explain : the statement want to ask the away team of highest away team score. the highest away team score is 23.11 (149). it is on the row 5.so we need row 5.
+The answer is : f_select_row([5])
+
+/*
+col : actor | character | soap opera | years | duration
+row 1 : tom jordon | charlie kelly | fair city | 1989- | 25 years
+row 2 : tony tormey | paul brennan | fair city | 1989- | 25 years
+row 3 : jim bartley | bela doyle | fair city | 1989- | 25 years
+row 4 : sarah flood | suzanne halpin | fair city | 1989 - 2013 | 24 years
+row 5 : pat nolan | barry o'hanlon | fair city | 1989 - 2011 | 22 years
+row 6 : martina stanley | dolores molloy | fair city | 1992- | 22 years
+row 7 : joan brosnan walsh | mags kelly | fair city | 1989 - 2009 | 20 years
+row 8 : jean costello | rita doyle | fair city | 1989 - 2008 , 2010 | 19 years
+row 9 : ciara o'callaghan | yvonne gleeson | fair city | 1991 - 2004 , 2008- | 19 years
+row 10 : celia murphy | niamh cassidy | fair city | 1995- | 19 years
+row 39 : tommy o'neill | john deegan | fair city | 2001- | 13 years
+row 40 : seamus moran | mike gleeson | fair city | 1996 - 2008 | 12 years
+row 41 : rebecca smith | annette daly | fair city | 1997 - 2009 | 12 years
+row 42 : grace barry | mary - ann byrne | glenroe | 1990 - 2001 | 11 years
+row 43 : gemma doorly | sarah o'leary | fair city | 2001 - 2011 | 10 years
+*/
+question : for how many years were seamus moran and rebecca smith in soap operas?
+explain : the statement want to check seamus moran and rebecca smith in the table. row 40 describes seamus moran were in soap operas for a duration of 12 years. row 41 describes rebecca smith were in soap operas for a duration of 12 years
+The answer is : f_row([40, 41])
+
+/*
+col : years | displacement | engine | power | torque
+row 1 : 1999 - 2004 | 4.0l (242cid) | power tech i6 | - | 3000 rpm
+row 2 : 1999 - 2004 | 4.7l (287cid) | powertech v8 | - | 3200 rpm
+row 3 : 2002 - 2004 | 4.7l (287cid) | high output powertech v8 | - | -
+row 4 : 1999 - 2001 | 3.1l diesel | 531 ohv diesel i5 | - | -
+row 5 : 2002 - 2004 | 2.7l diesel | om647 diesel i5 | - | -
+*/
+question : which jeep grand cherokee configuration held the third-lowest numbered displacement? 
+explain : the statement want to check the om647 diesel i5 had third lowest numbered displacement. so we need first three low numbered displacement and all rows that power is om647 diesel i5.
+The answer is : f_row([5, 4, 1])
+
+Given the following table and question, you need to provide the needed arguments for the `f_select_row()`. Only compatible function parameters will be accepted. As in the example, provide an explaination before giving the answer.
+\*
+{{ table }}*/
+Question: {{ question }}

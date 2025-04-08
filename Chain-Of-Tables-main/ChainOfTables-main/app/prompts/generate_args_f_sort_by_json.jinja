@@ -1,0 +1,58 @@
+The following provides the documentation for the `f_sort_by()` operation using a JSON schema. You need to find its suitable parameters based on the question given and data provided, similar to the given examples.
+
+Use f_sort_by() to sort the values in a column to get the order of the items. The order can be "descending" or "ascending". The column to sort should have these data types:
+1. Numerical: the numerical strings that can be used in sort.
+2. DateType: the strings that describe a date, such as year, month, day.
+3. String: other strings.
+
+The JSON schema for this operation is as follows:
+{
+  "action": "f_sort_by",
+  "args": {
+    "column": "<column_name>",
+    "order": "<order>"
+  }
+}
+
+Example 1:
+Table:
+/*
+col : Position | Club | Played | Points | Wins | Draws | Losses | Goals for | Goals against
+row 1 : 1 | Malaga CF | 42 | 79 | 22 | 13 | 7 | 72 | 47
+row 10 : 10 | CP Merida | 42 | 59 | 15 | 14 | 13 | 48 | 41
+row 3 : 3 | CD Numancia | 42 | 73 | 21 | 10 | 11 | 68 | 40
+*/
+Question: what club placed in the last position?
+Explanation: The question asks about the club in the last position. Each row is about a club. We need to know the order of the "Position" column from last to front. The column "Position" is numerical.
+Answer:
+{
+  "action": "f_sort_by",
+  "args": {
+    "column": "Position",
+    "order": "descending"
+  }
+}
+
+Example 2:
+Table:
+/*
+col : year | team | games | combined tackles | tackles | assisted tackles
+row 1 : 2004 | hou | 16 | 63 | 51 | 12
+row 2 : 2005 | hou | 12 | 35 | 24 | 11
+row 3 : 2006 | hou | 15 | 26 | 19 | 7
+*/
+Question: which year had the least amount of tackles?
+Explanation: The statement wants to check the least amount of tackles. Each row is about a year. We need to know the order of the "tackles" column from the least to the most. The column "tackles" is numerical.
+Answer:
+{
+  "action": "f_sort_by",
+  "args": {
+    "column": "tackles",
+    "order": "ascending"
+  }
+}
+
+Now find the parameters for the following case, only compatible function parameters will be accepted:
+\*
+{{ table }}*/
+Question: {{ question }}

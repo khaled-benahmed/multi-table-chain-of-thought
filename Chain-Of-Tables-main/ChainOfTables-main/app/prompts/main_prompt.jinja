@@ -1,0 +1,9 @@
+Given the following operations:```
+{% for name, description in operations.items() -%}
+{{ name }}: {{ description }}
+{% endfor %}```
+Given the following table
+```{{ table }}```
+Which operation needs to be used to answer the following question?
+Provide only the name of the operation as an answer.
+question: ```{{ question }}```

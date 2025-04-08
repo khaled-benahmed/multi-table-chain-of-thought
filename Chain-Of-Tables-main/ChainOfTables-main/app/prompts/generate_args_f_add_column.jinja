@@ -1,0 +1,81 @@
+The following describes how to use the operation `f_add_column()` using an example:
+
+Use f_add_column([column_name, column_values]) to adds more columns to the table. The new column must have the same number of rows as the given table.
+
+The added columns should have these data types:
+1. Numerical: the numerical strings that can be used in sort, sum
+2. Datetype: the strings that describe a date, such as year, month, day
+3. String: other strings
+
+Example:
+/*
+col : Week | When | Kickoff | Opponent | Results; Final score | Results; Team record | Game site | Attendance
+row 1 : 1 | Saturday, April 13 | 7:00 p.m. | at Rhein Fire | W 27-21 | 1-0 | Rheinstadion | 32,092 
+row 2 : 2 | Saturday, April 20 | 7:00 p.m. | London Monarchs | W 37-3 | 2-0 | Waldstadion | 34,186
+row 3 : 3 | Sunday, April 28 | 6:00 p.m. | at Barcelona Dragons | W 33-29 | 3-0 | Estadi Olímpic de Montjuïc | 17,503
+*/
+Question: what is the date of the competition with highest attendance?
+The existing columns are: "Week", "When", "Kickoff", "Opponent", "Results; Final score", "Results; Team record", "Game site", "Attendance".
+Explanation: the question asks about the date of the competition with highest score. Each row is about one competition. We extract the value from column "Attendance" and create a different column "Attendance number" for each row. The datatype is Numerical.
+The answer is: f_add_column(["Attendance number", "1 | 32092 \n 2 | 34186 \n 3 | 17503"])
+
+/*
+col : rank | lane | player | time
+row 1 :  | 5 | olga tereshkova (kaz) | 51.86
+row 2 :  | 6 | manjeet kaur (ind) | 52.17
+row 3 :  | 3 | asami tanno (jpn) | 53.04
+*/
+Question: how many athletes are from japan?
+The existing columns are: rank, lane, player, time.
+Explanation: To answer the question, we need to know the country of each athelte. We extract the value from column "player" and create a different column "country of athletes" for each row. The datatype is string.
+Therefore, the answer is: f_add_column(["country of athletes", "1 | kaz \n 2 | ind \n 3 | jap"])
+
+/*
+col : year | competition | venue | position | notes
+row 1 : 1991 | european junior championships | thessaloniki, greece | 10th | 4.90 m
+row 2 : 1992 | world junior championships | seoul, south korea | 1st | 5.45 m
+row 3 : 1996 | european indoor championships | stockholm, sweden | 14th (q) | 5.45 m
+*/
+Question: when did laurens place 1st?.
+The existing columns are: year, competition, venue, position, notes.
+Explanation: To answer the question, we need to know the place of each competition. We extract the value from column "position" and create a different column "placing result" for each row. The datatype is numerical.
+Therefore, the answer is: f_add_column(["placing result",  "1 | 10 \n 2 | 1 \n 3 | 14"])
+
+/*
+col : iso/iec standard | status | wg
+row 1 : iso/iec tr 19759 | published (2005) | 20
+row 2 : iso/iec 15288 | published (2008) | 7
+row 3 : iso/iec 12207 | published (2008) | 7
+*/
+Question: how many times the standards published in 2008?
+The existing columns are: iso/iec standard, title, status, description, wg.
+Explanation: To answer the question, we need to know the year of each standard. We extract the value from column "status" and create a different column "year of standard" for each row. The datatype is datetype.
+Therefore, the answer is: f_add_column(["year of standard", "1 | 2005 \n 2 | 2008 \n 3 | 2008"])
+
+/*
+col : match | date | ground | opponent | score1 | pos. | pts. | gd
+row 1 : 1 | 15 august | a | bayer uerdingen | 3 – 0 | 1 | 2 | 3
+row 2 : 2 | 22 july | h | 1. fc kaiserslautern | 1 – 0 | 1 | 4 | 4
+row 3 : 4 | 29 september | h | dynamo dresden | 3 – 1 | 1 | 6 | 6
+*/
+Question: how many times did they play in august?
+The existing columns are: match, date, ground, opponent, score1, pos., pts., gd.
+Explanation: To answer the question, we need to know the month of each match. We extract the value from column "date" and create a different column "month" for each row. The datatype is datetype.
+Therefore, the answer is: f_add_column(["month", "1 | august \n 2 | july \n 3 | september"]) 
+
+/*
+table caption : 1984 u.s. open (golf)
+col : place | player | country | score | to par
+row 1 : 1 | hale irwin | united states | 68 + 68 = 136 | - 4
+row 2 : 2 | fuzzy zoeller | united states | 71 + 66 = 137 | -- 3
+row 3 : t3 | david canipe | united states | 69 + 69 = 138 | - 2
+*/
+Question: what is the score of david canipe of united states?
+The existing columns are: place, player, country, score, to par.
+Explanation: To answer the question, we need to know the score values of each player. We extract the value from column "score" and create a different column "score value" for each row. The datatype is numerical.
+Therefore, the answer is: f_add_column(["score value", "1 | 136 \n 2 | 137 \n 3 | 138"])
+
+Now find the parameters for the following case:
+\*
+{{ table }}*/
+Question: {{ question }}

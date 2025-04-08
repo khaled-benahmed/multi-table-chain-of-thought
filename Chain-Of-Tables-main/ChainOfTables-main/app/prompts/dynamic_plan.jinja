@@ -1,0 +1,13 @@
+Given a set of operations and their instructions, a table of information, and a question, you are required to devise a plan consisting of a sequence of the provided operations to address the question.
+Your plan must only contain operations from the available operations list, the plan must always end with the <END> operation.
+The following outlines the available operations:
+{{ operations_instruction }}
+
+Here are examples of using the operations to answer the question:
+{{ operation_chain_demo }}
+
+The table is as follows:
+\*
+{{ table }}*/
+Question: {{ question }} {{ possible_next_operations_prompt }}
+Function Chain: {{ chain }}

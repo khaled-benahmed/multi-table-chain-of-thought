@@ -1,0 +1,36 @@
+The following provides the documentation for the `f_normalize_column()` operation, which standardizes column names across multiple tables. You need to find its suitable parameters based on the question given and data provided, similar to the given example:
+
+Use f_normalize_column(target_name, [table1, column1], [table2, column2], ...) to standardize column names across different tables to ensure they can be properly joined or compared.
+
+Example:
+/*
+Available tables:
+- population_table:
+  Columns: Nation, Population
+  Sample: USA (331 million), Canada (38 million), Japan (125 million)
+
+- economic_table:
+  Columns: Country Name, GDP
+  Sample: USA (21,000 billion USD), Canada (1,800 billion USD), Japan (5,000 billion USD)
+*/
+Question: Compare the GDP and population of Japan.
+Explanation: To join these tables for comparison, we need to normalize the country name columns that have different names. In population_table, the column is called 'Nation', and in economic_table, it's called 'Country Name'. We need to standardize both to a common name like 'Country'.
+The answer is: f_normalize_column("Country", ["population_table", "Nation"], ["economic_table", "Country Name"])
+
+/*
+Available tables:
+- weather_data:
+  Columns: City Name, Temperature, Humidity
+  Sample: Tokyo (22°C, 65%), New York (18°C, 70%), London (15°C, 80%)
+
+- tourism_stats:
+  Columns: Location, Annual Visitors, Average Stay
+  Sample: Tokyo (10 million, 4 days), New York (12 million, 5 days), London (8 million, 3 days)
+*/
+Question: What is the relationship between temperature and tourism in these cities?
+Explanation: To analyze the relationship between temperature and tourism, we need to join the weather_data and tourism_stats tables. The city names are called 'City Name' in weather_data and 'Location' in tourism_stats. We need to standardize them to a common name.
+The answer is: f_normalize_column("City", ["weather_data", "City Name"], ["tourism_stats", "Location"])
+
+Now find the parameters for the following case, only compatible function parameters will be accepted:
+{{ available_tables }}*/
+Question: {{ question }}

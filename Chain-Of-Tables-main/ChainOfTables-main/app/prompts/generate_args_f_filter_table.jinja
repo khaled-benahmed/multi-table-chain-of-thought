@@ -1,0 +1,29 @@
+The following provides the documentation for the `f_filter_table()` operation, which selects rows from a table that meet specific criteria. You need to find its suitable parameters based on the question given and data provided, similar to the given example:
+
+Use f_filter_table(table_name, column, value) to keep only rows in a table where the specified column equals the given value.
+
+Example:
+/*
+Available tables:
+- country_data:
+  Columns: Country, Continent, GDP
+  Sample: USA (North America, 21,000), Canada (North America, 1,800), Japan (Asia, 5,000), Germany (Europe, 4,000), France (Europe, 2,700)
+*/
+Question: What is the total GDP of European countries?
+Explanation: The question only concerns European countries. We need to filter the country_data table to keep only rows where the 'Continent' column equals 'Europe'. This removes non-European countries from consideration.
+The answer is: f_filter_table('country_data', 'Continent', 'Europe')
+
+/*
+Available tables:
+- employee_data:
+  Columns: Employee, Department, Salary, Years of Service
+  Sample: John (Sales, 75000, 5), Emma (Engineering, 95000, 3), Michael (Sales, 65000, 2), Sarah (Management, 110000, 8)
+*/
+Question: What is the average salary of employees in the Sales department?
+Explanation: The question asks about employees in the Sales department only. We need to filter the employee_data table to keep only rows where the 'Department' column equals 'Sales'.
+The answer is: f_filter_table('employee_data', 'Department', 'Sales')
+
+Now find the parameters for the following case, only compatible function parameters will be accepted:
+{{ available_tables }}*/
+Question: {{ question }}
+Explanation:

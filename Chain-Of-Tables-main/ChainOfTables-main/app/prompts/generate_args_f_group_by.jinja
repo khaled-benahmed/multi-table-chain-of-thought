@@ -1,0 +1,34 @@
+The following provides the documentation for the `f_group_by(columns)` operation, you need to find its suitable parameters similar to the given example: 
+
+Use f_group_by() to count the values in a column.
+Example:
+/*
+col : Rank | Lane | Athlete | Country | Time 
+row 1 : 1 | 6 | Manjeet Kaur (IND) | IND | 52.17 
+row 2 : 2 | 5 | Olga Tereshkova (KAZ) | KAZ | 51.86 
+row 3 : 3 | 4 | Pinki Pramanik (IND) | IND | 53.06 
+row 4 : 4 | 1 | Tang Xiaoyin (CHN) | CHN | 53.66 
+row 5 : 5 | 8 | Marina Maslyonko (KAZ) | KAZ | 53.99 
+*/
+Question: tell me the number of athletes from India.
+The existing columns are: Rank, Lane, Athlete, Time, Country.
+Explanation: The question asks about the number of athletes from India. Each row is about an athlete. We can group column "Country" to group the athletes from the same country.
+Therefore, the answer is: f_group_by(["Country"]).
+
+/*
+col : district | name | party | residence | first served
+row 1 : district 1 | nelson albano | dem | vineland | 2006
+row 2 : district 1 | robert andrzejczak | dem | middle twp. | 2013†
+row 3 : district 2 | john f. amodeo | rep | margate | 2008
+row 4 : district 2 | chris a. brown | rep | ventnor | 2012
+row 5 : district 3 | john j. burzichelli | dem | paulsboro | 2002
+*/
+Question: what is the number of districts that are democratic?
+The existing columns are: district, name, party, residence, first served.
+Explanation: the statement says the number of districts that are democratic is 5. Each row is about a district. We can group the column "party" to group the districts from the same party.
+Therefore, the answer is: f_group_by(["party"]).
+
+Now find the parameters for the following case, only compatible function parameters for `f_group_by` will be accepted.:
+\*
+{{ table }}*/
+Question: {{ question }}
