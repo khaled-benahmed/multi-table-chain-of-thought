@@ -340,7 +340,7 @@ class GroupBy(Operation):
             "required": ["columns"]
         }
 
-# New Multi-Table Operations
+# Multi-Table Operations
 
 class SelectTable(Operation):
     """Operation to select one or more tables from a set of tables based on relevance to a question."""
@@ -604,194 +604,6 @@ class JoinTables(Operation):
         }
 
 
-class FilterTable(Operation):
-    """Operation to filter a table based on specific conditions."""
-    name = "f_filter_table"
-    description = "Filters a table based on specific conditions to remove irrelevant data."
-    
-    generation_params = {"do_sample": True, "temperature": 0.7, "n_samples": 5}
-    
-    def perform(self, tables_dict):
-        """
-        Filter a table based on conditions.
-        
-        Args:
-            tables_dict: Dictionary of table_name -> DataFrame
-            
-        Returns:
-            Updated dictionary with filtered table
-        """
-        if len(self.args) != 3:
-            return tables_dict
-        
-        table_name, column, value = self.args
-        
-        if table_name not in tables_dict:
-            return tables_dict
-        
-        df = tables_dict[table_name]
-        
-        if column not in df.columns:
-            return tables_dict
-        
-        # Apply the filter
-        filtered_df = df[df[column] == value]
-        
-        # Update the table in the dictionary
-        result = tables_dict.copy()
-        result[table_name] = filtered_df
-        
-        return result
-    
-    def documentation(self):
-        instruction = (
-            "When a table contains more data than needed for a question, "
-            "we use f_filter_table() to keep only the relevant rows that match specific criteria."
-        )
-        
-        example = OperationExample(
-            data={
-                "table_names": ["country_data"],
-                "country_data": pd.DataFrame({
-                    "Country": ["USA", "Canada", "Japan", "Germany", "France"],
-                    "Continent": ["North America", "North America", "Asia", "Europe", "Europe"],
-                    "GDP": [21000, 1800, 5000, 4000, 2700]
-                }).to_dict()
-            },
-            question="What is the total GDP of European countries?",
-            function="f_filter_table('country_data', 'Continent', 'Europe')",
-            explaination=(
-                "The question only concerns European countries. "
-                "We filter the country_data table to keep only rows where the 'Continent' column equals 'Europe'. "
-                "This removes non-European countries from consideration."
-            )
-        )
-        
-        return f"{instruction} {example}"
-    
-    def get_json_schema(self, tables_dict):
-        properties = {
-            "table_name": {"type": "string", "enum": list(tables_dict.keys())},
-            "filter_conditions": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "column": {"type": "string"},
-                        "operator": {"type": "string", "enum": ["=", "!=", ">", "<", ">=", "<="]},
-                        "value": {"type": ["string", "number", "boolean"]}
-                    },
-                    "required": ["column", "operator", "value"]
-                }
-            }
-        }
-        
-        return {
-            "type": "object",
-            "properties": properties,
-            "required": ["table_name", "filter_conditions"]
-        }
-
-
-class AggregateTable(Operation):
-    """Operation to perform aggregation operations on table data."""
-    name = "f_aggregate_table"
-    description = "Performs aggregation operations (sum, avg, count, etc.) on table data."
-    
-    generation_params = {"do_sample": True, "temperature": 0.5, "n_samples": 5}
-    
-    def perform(self, tables_dict):
-        """
-        Perform aggregation on a table.
-        
-        Args:
-            tables_dict: Dictionary of table_name -> DataFrame
-            
-        Returns:
-            Updated dictionary with aggregated results
-        """
-        if len(self.args) != 4:
-            return tables_dict
-        
-        table_name, operation, column, new_table_name = self.args
-        
-        if table_name not in tables_dict:
-            return tables_dict
-        
-        df = tables_dict[table_name]
-        
-        if column not in df.columns:
-            return tables_dict
-        
-        # Perform the aggregation
-        if operation == "sum":
-            result_value = df[column].sum()
-        elif operation == "avg" or operation == "mean":
-            result_value = df[column].mean()
-        elif operation == "count":
-            result_value = df[column].count()
-        elif operation == "max":
-            result_value = df[column].max()
-        elif operation == "min":
-            result_value = df[column].min()
-        else:
-            return tables_dict
-        
-        # Create a new single-row dataframe with the result
-        result_df = pd.DataFrame({
-            "Operation": [f"{operation}({column})"],
-            "Result": [result_value]
-        })
-        
-        # Add the result table to the dictionary
-        result = tables_dict.copy()
-        result[new_table_name] = result_df
-        
-        return result
-    
-    def documentation(self):
-        instruction = (
-            "When a question requires calculations across multiple rows of a table, "
-            "we use f_aggregate_table() to compute summaries like sums, averages, counts, etc."
-        )
-        
-        example = OperationExample(
-            data={
-                "table_names": ["gdp_data"],
-                "gdp_data": pd.DataFrame({
-                    "Country": ["USA", "Canada", "Japan", "Germany", "France"],
-                    "GDP": [21000, 1800, 5000, 4000, 2700]
-                }).to_dict()
-            },
-            question="What is the total GDP of all countries in the table?",
-            function="f_aggregate_table('gdp_data', 'sum', 'GDP', 'total_gdp')",
-            explaination=(
-                "The question asks for the total GDP across all countries. "
-                "We apply the 'sum' operation to the 'GDP' column of the gdp_data table. "
-                "The result is stored in a new table called 'total_gdp'."
-            )
-        )
-        
-        return f"{instruction} {example}"
-    
-    def get_json_schema(self, tables_dict):
-        table_names = list(tables_dict.keys())
-        
-        column_names = set()
-        for df in tables_dict.values():
-            column_names.update(df.columns)
-        
-        return {
-            "type": "object",
-            "properties": {
-                "table_name": {"type": "string", "enum": table_names},
-                "operation": {"type": "string", "enum": ["sum", "avg", "mean", "count", "max", "min"]},
-                "column": {"type": "string", "enum": list(column_names)},
-                "result_table_name": {"type": "string"}
-            },
-            "required": ["table_name", "operation", "column", "result_table_name"]
-        }
-
 @dataclass
 class Chain:
     operations: List[Operation] = field(default_factory=list)
@@ -806,7 +618,7 @@ class Chain:
         return len(self.operations)
 
     def documenation(self):
-        # First scenario data
+        # First scenario data - single table
         data1 = {
             "Date": ["2001/01/02", "2002/08/06", "2005/03/24"],
             "Division": [2, 2, 2],
@@ -832,7 +644,7 @@ class Chain:
             data=data1, question=question1, function_chain=function_chain1
         )
         
-        # Second scenario data
+        # Second scenario data - single table
         data2 = {
             "rank": [1, 2, 3],
             "lane": [6, 5, 4],
@@ -867,7 +679,7 @@ class Chain:
             SelectTable(["population_data", "gdp_data"]),
             NormalizeColumn(["Country", ["gdp_data", "Nation"]]),
             JoinTables(["population_data", "gdp_data", "Country", "combined_data"]),
-            FilterTable(["combined_data", "Country", "Japan"]),
+            SelectColumn(["Country", "Population", "GDP"]),
             EndOperation(),
         ])
         example3 = OperationChainExample(
@@ -876,7 +688,7 @@ class Chain:
             function_chain=function_chain3
         )
 
-        # Fourth scenario data - More complex multi-table example
+        # Fourth scenario data - Another multi-table example
         table3_data = {
             "Country": ["USA", "Canada", "Japan", "Germany", "France"],
             "Continent": ["North America", "North America", "Asia", "Europe", "Europe"],
@@ -887,13 +699,12 @@ class Chain:
             "GDP": [21000, 1800, 5000, 4000, 2700]
         }
         
-        question4 = "What is the total GDP of European countries?"
+        question4 = "What is the GDP of European countries?"
         function_chain4 = Chain([
             BeginOperation(),
             SelectTable(["continent_data", "gdp_data"]),
             JoinTables(["continent_data", "gdp_data", "Country", "combined_data"]),
-            FilterTable(["combined_data", "Continent", "Europe"]),
-            AggregateTable(["combined_data", "sum", "GDP", "result"]),
+            SelectColumn(["Country", "Continent", "GDP"]),
             EndOperation(),
         ])
         example4 = OperationChainExample(
@@ -909,7 +720,8 @@ class Chain:
             f"{example4}\n"
         )
 
-    # Extended transition map to include multi-table operations
+    # Updated transition map to prioritize SelectTable as the first operation and 
+    # remove AggregateTable and FilterTable
     possible_next_operation_dict = {
         BeginOperation: [
             SelectTable,  # For multi-table scenarios, start by selecting relevant tables
@@ -922,70 +734,47 @@ class Chain:
         SelectTable: [
             NormalizeColumn,  # After selecting tables, normalize columns if needed
             JoinTables,       # Or directly join if columns already aligned
-            FilterTable,      # Or filter individual tables before joining
             SelectColumn,     # Or select relevant columns from specific tables
+            SelectRow,        # Or select specific rows
             EndOperation,     # If only table selection was needed
         ],
         NormalizeColumn: [
             JoinTables,      # After normalizing, typically join the tables
-            FilterTable,     # Or filter tables first
             SelectColumn,    # Or select specific columns
+            SelectRow,       # Or select specific rows
             EndOperation,    # If normalization was the main operation needed
         ],
         JoinTables: [
-            FilterTable,     # After joining, often filter the combined table
             SelectColumn,    # Or select specific columns
+            SelectRow,       # Or select specific rows
             AddColumn,       # Or add derived columns
-            AggregateTable,  # Or aggregate the data
             GroupBy,         # Or group by certain columns
             SortBy,          # Or sort the results
             EndOperation,    # If joining was the main operation
-        ],
-        FilterTable: [
-            JoinTables,      # After filtering, possibly join with other tables
-            SelectColumn,    # Or select columns
-            AddColumn,       # Or add columns
-            AggregateTable,  # Or aggregate the data
-            GroupBy,         # Or group the data
-            SortBy,          # Or sort the results
-            EndOperation,    # If filtering was sufficient
-        ],
-        AggregateTable: [
-            SelectColumn,    # After aggregating, select specific columns
-            SortBy,          # Or sort the results
-            EndOperation,    # Often the final step
         ],
         AddColumn: [
             SelectRow,
             SelectColumn,
             GroupBy,
             SortBy,
-            FilterTable,     # After adding a column, may want to filter on it
-            AggregateTable,  # Or aggregate based on the new column
             EndOperation,
         ],
         SelectRow: [
             SelectColumn,
             GroupBy,
             SortBy,
-            FilterTable,     # After selecting rows, may apply additional filters
-            AggregateTable,  # Or aggregate the selected data
             EndOperation,
         ],
         SelectColumn: [
             GroupBy,
             SortBy,
-            FilterTable,     # After selecting columns, may apply filters
-            AggregateTable,  # Or aggregate the selected data
             EndOperation,
         ],
         GroupBy: [
             SortBy,
-            AggregateTable,  # After grouping, may want to aggregate
             EndOperation,
         ],
         SortBy: [
-            AggregateTable,  # After sorting, may want to aggregate the top/bottom results
             EndOperation,
         ],
     }

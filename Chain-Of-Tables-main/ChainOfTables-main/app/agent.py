@@ -18,9 +18,7 @@ from operation import (
     SelectRow,
     SelectTable,
     NormalizeColumn,
-    JoinTables,
-    FilterTable,
-    AggregateTable
+    JoinTables
 )
 from prompt import PromptTemplate
 from text_generation import AsyncClient  # Import here for each async task
@@ -158,6 +156,101 @@ class Agent:
             
         return possible_next_operations_prompt
             
+    def parse_dataframe_from_representation(self, table_representation):
+        """
+        Safely parse a DataFrame from string representation.
+        
+        Args:
+            table_representation: String representation of tables
+            
+        Returns:
+            Either a single DataFrame or a dictionary of DataFrames depending on the format
+        """
+        try:
+            table_data = json.loads(table_representation)
+            
+            # Handle multi-table format
+            if "tables" in table_data:
+                result = {}
+                for table_info in table_data["tables"]:
+                    table_name = table_info.get("table_name", "")
+                    columns = table_info.get("columns", [])
+                    
+                    # Create a dictionary of column names to empty lists
+                    data = {}
+                    for col in columns:
+                        data[col] = []
+                    
+                    # Extract data from table_column_priority
+                    column_data = {}
+                    for col_data in table_info.get("table_column_priority", []):
+                        if len(col_data) > 0:
+                            col_name = col_data[0]
+                            if col_name in data:
+                                # Skip the first element which is the column name
+                                column_data[col_name] = col_data[1:]
+                    
+                    # Ensure all columns have the same length
+                    max_len = 0
+                    for col, values in column_data.items():
+                        max_len = max(max_len, len(values))
+                    
+                    # Fill data with values, padding with empty strings if necessary
+                    for col in columns:
+                        if col in column_data:
+                            values = column_data[col]
+                            # Pad with empty strings if needed
+                            if len(values) < max_len:
+                                values = values + [""] * (max_len - len(values))
+                            data[col] = values
+                        else:
+                            data[col] = [""] * max_len
+                    
+                    # Create DataFrame with the processed data
+                    df = pd.DataFrame(data)
+                    result[table_name] = df
+                return result
+            
+            # Handle single table format
+            else:
+                columns = table_data.get("columns", [])
+                
+                # Create a dictionary of column names to empty lists
+                data = {}
+                for col in columns:
+                    data[col] = []
+                
+                # Extract data from table_column_priority
+                column_data = {}
+                for col_data in table_data.get("table_column_priority", []):
+                    if len(col_data) > 0:
+                        col_name = col_data[0]
+                        if col_name in data:
+                            # Skip the first element which is the column name
+                            column_data[col_name] = col_data[1:]
+                
+                # Ensure all columns have the same length
+                max_len = 0
+                for col, values in column_data.items():
+                    max_len = max(max_len, len(values))
+                
+                # Fill data with values, padding with empty strings if necessary
+                for col in columns:
+                    if col in column_data:
+                        values = column_data[col]
+                        # Pad with empty strings if needed
+                        if len(values) < max_len:
+                            values = values + [""] * (max_len - len(values))
+                        data[col] = values
+                    else:
+                        data[col] = [""] * max_len
+                
+                # Create DataFrame with the processed data
+                return pd.DataFrame(data)
+                
+        except Exception as e:
+            self.logger.warning(f"Error parsing DataFrame: {e}")
+            return {} if "tables" in json.loads(table_representation) else pd.DataFrame()
 
     async def dynamic_plan(self, tables_representation, question, chain, metadata):
         actions_description = self.get_actions_descritption()
@@ -178,24 +271,17 @@ class Agent:
 
         # Get available tables for grammar generation
         tables = {}
-        if isinstance(tables_representation, str):
-            try:
-                tables_data = json.loads(tables_representation)
-                if "tables" in tables_data:
-                    # Multi-table format
-                    for table_info in tables_data["tables"]:
-                        table_name = table_info.get("table_name", "")
-                        if table_name:
-                            # Create a mock DataFrame for grammar validation
-                            df = pd.DataFrame(columns=table_info.get("columns", []))
-                            tables[table_name] = df
+        try:
+            if isinstance(tables_representation, str):
+                # Use the safe parsing method
+                parsed_tables = self.parse_dataframe_from_representation(tables_representation)
+                if isinstance(parsed_tables, dict):
+                    tables = parsed_tables
                 else:
-                    # Single table format
-                    df = pd.read_csv(StringIO(tables_representation))
-                    tables = {"main_table": df}
-            except Exception as e:
-                self.logger.warning(f"Error parsing tables representation: {e}")
-                tables = {"main_table": pd.DataFrame()}
+                    tables = {"main_table": parsed_tables}
+        except Exception as e:
+            self.logger.warning(f"Error parsing tables for grammar generation: {e}")
+            tables = {"main_table": pd.DataFrame()}
         
         grammar = self.guidance_strategy.build_grammar(agent=self, context="plan")
         
@@ -234,7 +320,6 @@ class Agent:
                     pass
             return EndOperation
 
-
     def create_tables_representation(self, tables):
         """
         Create a string representation of tables for prompting.
@@ -254,8 +339,19 @@ class Agent:
         representations = []
         
         for table_name, df in tables.items():
-            # Create representation for each table
-            table_column_priority = [[col] + df[col].fillna("").astype(str).tolist() for col in df.columns]
+            # Create representation for each table - safely convert all values to strings
+            table_column_priority = []
+            for col in df.columns:
+                # Convert column values to strings safely
+                values = []
+                for val in df[col].fillna("").values:
+                    if isinstance(val, (int, float)):
+                        values.append(str(val))
+                    elif isinstance(val, str):
+                        values.append(val)
+                    else:
+                        values.append(str(val))
+                table_column_priority.append([col] + values)
             
             # Add table name and representation
             rep = {
@@ -275,9 +371,20 @@ class Agent:
         return json.dumps(full_representation, ensure_ascii=False, separators=(',', ':'))
 
     def create_single_table_representation(self, df):
-        """Original method for single table representation"""
-        # Transpose the table for `table_column_priority` format
-        table_column_priority = [[col] + df[col].fillna("").astype(str).tolist() for col in df.columns]
+        """Original method for single table representation with safety improvements"""
+        # Transpose the table for `table_column_priority` format - safely convert all values to strings
+        table_column_priority = []
+        for col in df.columns:
+            # Convert column values to strings safely
+            values = []
+            for val in df[col].fillna("").values:
+                if isinstance(val, (int, float)):
+                    values.append(str(val))
+                elif isinstance(val, str):
+                    values.append(val)
+                else:
+                    values.append(str(val))
+            table_column_priority.append([col] + values)
         
         # Create the representation dictionary
         representation = {
@@ -308,10 +415,6 @@ class Agent:
             template_name = "generate_args_f_normalize_column"
         elif isinstance(f, JoinTables):
             template_name = "generate_args_f_join_tables"
-        elif isinstance(f, FilterTable):
-            template_name = "generate_args_f_filter_table"
-        elif isinstance(f, AggregateTable):
-            template_name = "generate_args_f_aggregate_table"
         else:
             # Use original templates for existing operations
             template_name = f"generate_args_{f.name}"
@@ -322,34 +425,27 @@ class Agent:
         
         prompt_template = PromptTemplate.load(template_name)
         
-        # Parse tables for grammar validation
+        # Parse tables for grammar validation - use safe parsing method
         tables = {}
-        if isinstance(tables_representation, str):
-            try:
-                tables_data = json.loads(tables_representation)
-                if "tables" in tables_data:
-                    # Multi-table format
-                    for table_info in tables_data["tables"]:
-                        table_name = table_info.get("table_name", "")
-                        if table_name:
-                            # Create a mock DataFrame for grammar validation
-                            df = pd.DataFrame(columns=table_info.get("columns", []))
-                            tables[table_name] = df
+        try:
+            if isinstance(tables_representation, str):
+                parsed_tables = self.parse_dataframe_from_representation(tables_representation)
+                if isinstance(parsed_tables, dict):
+                    tables = parsed_tables
                 else:
-                    # Single table format - backwards compatibility
-                    df = pd.read_csv(StringIO(tables_representation))
-                    tables = {"main_table": df}
-            except Exception as e:
-                self.logger.warning(f"Error parsing tables representation: {e}")
-                tables = {"main_table": pd.DataFrame()}
+                    tables = {"main_table": parsed_tables}
+        except Exception as e:
+            self.logger.warning(f"Error parsing tables for grammar validation: {e}")
+            tables = {"main_table": pd.DataFrame()}
                 
         # For SelectColumn type operations, single table is still expected
-        if isinstance(f, SelectColumn):
-            tables_representation = self.create_single_table_representation(pd.read_csv(StringIO(tables_representation)))
+        modified_table_rep = tables_representation
+        if isinstance(f, SelectColumn) and isinstance(tables, dict) and "main_table" in tables:
+            modified_table_rep = self.create_single_table_representation(tables["main_table"])
         
         prompt = prompt_template.build(
             operations=f.documentation(), 
-            table=tables_representation,
+            table=modified_table_rep,
             available_tables=tables_representation,  # For multi-table templates
             question=question
         )
@@ -405,18 +501,16 @@ class Agent:
             elif isinstance(f, JoinTables):
                 matches = [re.search(r'f_join_tables\(\'(.*?)\', \'(.*?)\', \'(.*?)\', \'(.*?)\'\)', x) for x in generated_texts]
                 args = self.parse_join_tables_args(matches)
-            elif isinstance(f, FilterTable):
-                matches = [re.search(r'f_filter_table\(\'(.*?)\', \'(.*?)\', \'(.*?)\'\)', x) for x in generated_texts]
-                args = self.parse_filter_table_args(matches)
-            elif isinstance(f, AggregateTable):
-                matches = [re.search(r'f_aggregate_table\(\'(.*?)\', \'(.*?)\', \'(.*?)\', \'(.*?)\'\)', x) for x in generated_texts]
-                args = self.parse_aggregate_table_args(matches)
             else:
                 # Original pattern for other operations
                 matches = [m.group(1).strip() if (m := re.search(r'\((.*?)\)', x)) else None for x in generated_texts]
                 response_counter = Counter(matches)
-                response_text, _ = response_counter.most_common(1)[0]
-                args = ast.literal_eval(response_text) if response_text is not None else "No answer found"
+                try:
+                    response_text, _ = response_counter.most_common(1)[0]
+                    args = ast.literal_eval(response_text) if response_text is not None else "No answer found"
+                except IndexError:
+                    self.logger.warning("No valid arguments found in regex matches")
+                    args = "No answer found"
                 
         return args
     
@@ -428,11 +522,15 @@ class Agent:
             
         # Count and get most common pattern
         counter = Counter(valid_matches)
-        most_common, _ = counter.most_common(1)[0]
-            
-        # Parse table names
-        tables = [t.strip().strip("'\"") for t in most_common.split(",")]
-        return tables
+        try:
+            most_common, _ = counter.most_common(1)[0]
+                
+            # Parse table names
+            tables = [t.strip().strip("'\"") for t in most_common.split(",")]
+            return tables
+        except IndexError:
+            self.logger.warning("No valid table selection arguments found")
+            return []
         
     def parse_normalize_column_args(self, matches):
         """Parse arguments for f_normalize_column operation"""
@@ -440,23 +538,27 @@ class Agent:
         if not valid_matches:
             return []
             
-        # Get most common pattern
-        counter = Counter(valid_matches)
-        (target_name, mappings_str), _ = counter.most_common(1)[0]
-            
-        # Parse mappings
-        result = [target_name]
-        mappings_list = mappings_str.split(",")
-        for mapping in mappings_list:
-            mapping = mapping.strip()
-            if mapping:
-                # Extract table and column names
-                match = re.search(r'\[\'(.*?)\', \'(.*?)\'\]', mapping)
-                if match:
-                    table_name, column_name = match.group(1), match.group(2)
-                    result.append([table_name, column_name])
-                    
-        return result
+        try:
+            # Get most common pattern
+            counter = Counter(valid_matches)
+            (target_name, mappings_str), _ = counter.most_common(1)[0]
+                
+            # Parse mappings
+            result = [target_name]
+            mappings_list = mappings_str.split(",")
+            for mapping in mappings_list:
+                mapping = mapping.strip()
+                if mapping:
+                    # Extract table and column names
+                    match = re.search(r'\[\'(.*?)\', \'(.*?)\'\]', mapping)
+                    if match:
+                        table_name, column_name = match.group(1), match.group(2)
+                        result.append([table_name, column_name])
+                        
+            return result
+        except IndexError:
+            self.logger.warning("No valid normalize column arguments found")
+            return []
         
     def parse_join_tables_args(self, matches):
         """Parse arguments for f_join_tables operation"""
@@ -464,33 +566,14 @@ class Agent:
         if not valid_matches:
             return []
             
-        # Get most common pattern
-        counter = Counter(valid_matches)
-        args, _ = counter.most_common(1)[0]
-        return list(args)
-        
-    def parse_filter_table_args(self, matches):
-        """Parse arguments for f_filter_table operation"""
-        valid_matches = [(m.group(1), m.group(2), m.group(3)) for m in matches if m]
-        if not valid_matches:
+        try:
+            # Get most common pattern
+            counter = Counter(valid_matches)
+            args, _ = counter.most_common(1)[0]
+            return list(args)
+        except IndexError:
+            self.logger.warning("No valid join tables arguments found")
             return []
-            
-        # Get most common pattern
-        counter = Counter(valid_matches)
-        args, _ = counter.most_common(1)[0]
-        return list(args)
-        
-    def parse_aggregate_table_args(self, matches):
-        """Parse arguments for f_aggregate_table operation"""
-        valid_matches = [(m.group(1), m.group(2), m.group(3), m.group(4)) for m in matches if m]
-        if not valid_matches:
-            return []
-            
-        # Get most common pattern
-        counter = Counter(valid_matches)
-        args, _ = counter.most_common(1)[0]
-        return list(args)
-
 
     async def direct_query(self, tables_representation, question, metadata):
         """
@@ -510,26 +593,18 @@ class Agent:
             table_representation=tables_representation, question=question
         )
 
-        # Parse tables for grammar validation
+        # Parse tables for grammar validation - use safe parsing method
         tables = {}
-        if isinstance(tables_representation, str):
-            try:
-                tables_data = json.loads(tables_representation)
-                if "tables" in tables_data:
-                    # Multi-table format
-                    for table_info in tables_data["tables"]:
-                        table_name = table_info.get("table_name", "")
-                        if table_name:
-                            # Create a mock DataFrame for grammar validation
-                            df = pd.DataFrame(columns=table_info.get("columns", []))
-                            tables[table_name] = df
+        try:
+            if isinstance(tables_representation, str):
+                parsed_tables = self.parse_dataframe_from_representation(tables_representation)
+                if isinstance(parsed_tables, dict):
+                    tables = parsed_tables
                 else:
-                    # Single table format
-                    df = pd.read_csv(StringIO(tables_representation))
-                    tables = {"main_table": df}
-            except Exception as e:
-                self.logger.warning(f"Error parsing tables representation: {e}")
-                tables = {"main_table": pd.DataFrame()}
+                    tables = {"main_table": parsed_tables}
+        except Exception as e:
+            self.logger.warning(f"Error parsing tables for grammar validation: {e}")
+            tables = {"main_table": pd.DataFrame()}
         
         grammar = self.guidance_strategy.build_grammar(
             agent=self,
@@ -569,12 +644,12 @@ class Agent:
         metadata = {"reached_endoperation": False, "generated_tokens": 0}
 
         while not isinstance(f, EndOperation) and fail < config.get("MAX_FAILED_REPETITIONS") and chain.length() < config.get("MAX_CHAIN_LENGTH"):
-            # Create representation of current tables state
-            tables_representation = await asyncio.to_thread(self.create_tables_representation, tables)
-
-            f, args = None, None
-
             try:
+                # Create representation of current tables state
+                tables_representation = await asyncio.to_thread(self.create_tables_representation, tables)
+
+                f, args = None, None
+
                 f_class = await self.dynamic_plan(
                     tables_representation, question, chain, metadata
                 )
@@ -602,22 +677,26 @@ class Agent:
                     (
                         f"Planning or operation execution failed. \n"
                         f"Intended function: {f}\nArgs: {args}\nTables:\n"
-                        f"{tables_representation}\nError: {e}"
+                        f"{tables_representation if 'tables_representation' in locals() else 'Table representation not available'}\nError: {e}"
                     )
                 )
                 fail += 1
                 
         # For the final query, use the main table if it's a single table result
-        if len(tables) == 1:
-            main_table_name = next(iter(tables.keys()))
-            table_representation = await asyncio.to_thread(self.create_single_table_representation, tables[main_table_name])
-        else:
-            table_representation = await asyncio.to_thread(self.create_tables_representation, tables)
-            
-        answer = None
         try:
-            answer = await self.direct_query(table_representation, question, metadata)
+            if len(tables) == 1:
+                main_table_name = next(iter(tables.keys()))
+                table_representation = await asyncio.to_thread(self.create_single_table_representation, tables[main_table_name])
+            else:
+                table_representation = await asyncio.to_thread(self.create_tables_representation, tables)
+                
+            answer = None
+            try:
+                answer = await self.direct_query(table_representation, question, metadata)
+            except Exception as e:
+                self.logger.warning("Failed to generate an answer because of the following error:\n" + str(e))
+                
+            return answer, chain, metadata
         except Exception as e:
-            self.logger.warning("Failed to generate an answer because of the following error:\n" + str(e))
-            
-        return answer, chain, metadata
+            self.logger.warning(f"Error creating final table representation: {e}")
+            return "Failed to generate answer due to an error", chain, metadata

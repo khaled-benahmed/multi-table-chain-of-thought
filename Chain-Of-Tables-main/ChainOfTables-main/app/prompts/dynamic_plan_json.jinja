@@ -16,7 +16,61 @@ Your output must be a valid JSON object with the following structure:
 
 The available operations are:
 
-1. f_select_column  
+1. f_select_table
+   Description: When working with multiple tables, selects the most relevant tables needed to answer the question.
+   Example:
+   Available tables:
+   - population_data: Contains population information
+   - gdp_data: Contains GDP information
+   - export_data: Contains export data
+   Question: What is the GDP per capita of Japan?
+   Function call example:
+   {
+     "action": "f_select_table",
+     "args": { "tables": ["population_data", "gdp_data"] }
+   }
+   Explanation: The question asks about GDP per capita, which requires both population and GDP data, so we select these two tables.
+
+2. f_normalize_column
+   Description: Standardizes column names across tables to align similar columns for joining.
+   Example:
+   Available tables:
+   - population_table: Has a "Nation" column
+   - economic_table: Has a "Country Name" column
+   Question: Compare GDP and population of Japan.
+   Function call example:
+   {
+     "action": "f_normalize_column",
+     "args": { 
+       "target_name": "Country", 
+       "mappings": [
+         {"table_name": "population_table", "column_name": "Nation"},
+         {"table_name": "economic_table", "column_name": "Country Name"}
+       ]
+     }
+   }
+   Explanation: We standardize the country columns to have the same name for joining.
+
+3. f_join_tables
+   Description: Combines data from two tables based on a common key column.
+   Example:
+   Available tables:
+   - population_data: Has "Country" and "Population" columns
+   - gdp_data: Has "Country" and "GDP" columns
+   Question: What is the GDP per capita for each country?
+   Function call example:
+   {
+     "action": "f_join_tables",
+     "args": {
+       "table1": "population_data",
+       "table2": "gdp_data",
+       "join_column": "Country",
+       "result_table_name": "combined_data"
+     }
+   }
+   Explanation: We join population and GDP data on the Country column to create a combined table.
+
+4. f_select_column  
    Description: If the table only needs a few columns to answer the question, we use f_select_column() to select these columns.
    Example:  
    Table:
@@ -34,7 +88,7 @@ The available operations are:
    }
    Explanation: The question asks for information about the venues and the crowds for each game. We select the "Venue" and "Crowd" columns.
 
-2. f_select_row  
+5. f_select_row  
    Description: If the table only needs a few rows to answer the question, we use f_select_row() to select these rows.
    Example:  
    Table:
@@ -52,7 +106,7 @@ The available operations are:
    }
    Explanation: We select rows 0 and 2 to compare the home team scores of Richmond and St Kilda.
 
-3. f_add_column  
+6. f_add_column  
    Description: If the table does not have the needed column to answer the question, we use f_add_column() to add a new column.
    Example:  
    Table:
@@ -66,11 +120,11 @@ The available operations are:
    Function call example:
    {
      "action": "f_add_column",
-     "args": { "column_name": "country of athlete", "values": ["Japan", "Japan", "Japan"] }
+     "args": { "column_name": "country of athlete", "values": ["kaz", "ind", "jpn"] }
    }
    Explanation: Since there is no column for the country of athletes, we add a column "country of athlete" with a value for each row.
 
-4. f_sort_by  
+7. f_sort_by  
    Description: If the question asks about the order of items in a column, we use f_sort_by() to sort the items.
    Example:  
    Table:
@@ -88,7 +142,7 @@ The available operations are:
    }
    Explanation: We sort the rows by the "position" column in ascending order to determine the finishing position.
 
-5. f_group_by  
+8. f_group_by  
    Description: If the question asks about items with the same value and the number of these items, we use f_group_by() to group the items.
    Example:  
    Table:
@@ -106,7 +160,7 @@ The available operations are:
    }
    Explanation: We group the rows by the "party" column to count the number of democratic districts.
 
-6. <END>  
+9. <END>  
    Description: The terminal operation indicating the end of the plan.
    Example:
    {
@@ -116,45 +170,36 @@ The available operations are:
 
 Below are example plans expressed in JSON:
 
-Example 1:
+Example 1 (Multi-table):
 {
   "chain": [
-    { "action": "f_add_column", "args": { "column_name": "Year", "values": ["2001/01/02", "2002/08/06", "2005/03/24"] } },
-    { "action": "f_select_row", "args": { "rows": [1, 2] } },
-    { "action": "f_select_column", "args": { "columns": ["Year", "League"] } },
-    { "action": "f_sort_by", "args": { "column": "Year", "order": "ascending" } },
+    { "action": "f_select_table", "args": { "tables": ["population_data", "gdp_data"] } },
+    { "action": "f_normalize_column", "args": { 
+        "target_name": "Country", 
+        "mappings": [
+          {"table_name": "gdp_data", "column_name": "Nation"}
+        ]
+      } 
+    },
+    { "action": "f_join_tables", "args": { 
+        "table1": "population_data", 
+        "table2": "gdp_data", 
+        "join_column": "Country", 
+        "result_table_name": "combined_data" 
+      } 
+    },
+    { "action": "f_select_column", "args": { "columns": ["Country", "Population", "GDP"] } },
     { "action": "<END>", "args": {} }
   ]
 }
 
-Example 2:
+Example 2 (Single table):
 {
   "chain": [
-    { "action": "f_add_column", "args": { "column_name": "country of athletes", "values": ["USA", "Canada", "USA"] } },
+    { "action": "f_add_column", "args": { "column_name": "country of athletes", "values": ["kaz", "ind", "jpn"] } },
     { "action": "f_select_row", "args": { "rows": [1, 3] } },
     { "action": "f_select_column", "args": { "columns": ["athlete", "country of athletes"] } },
     { "action": "f_group_by", "args": { "columns": ["country of athletes"] } },
-    { "action": "<END>", "args": {} }
-  ]
-}
-
-Example 3:
-{
-  "chain": [
-    { "action": "f_add_column", "args": { "column_name": "points scored", "values": ["40", "30", "25", "20", "15", "11", "7", "5", "3", "1"] } },
-    { "action": "f_select_column", "args": { "columns": ["when", "points scored"] } },
-    { "action": "f_sort_by", "args": { "column": "points scored", "order": "ascending" } },
-    { "action": "<END>", "args": {} }
-  ]
-}
-
-Example 4:
-{
-  "chain": [
-    { "action": "f_add_column", "args": { "column_name": "year", "values": ["2005", "2008", "2011"] } },
-    { "action": "f_select_row", "args": { "rows": [2] } },
-    { "action": "f_select_column", "args": { "columns": ["year"] } },
-    { "action": "f_group_by", "args": { "columns": ["year"] } },
     { "action": "<END>", "args": {} }
   ]
 }
