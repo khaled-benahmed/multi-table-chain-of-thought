@@ -17,7 +17,6 @@ from operation import (
     SelectColumn,
     SelectRow,
     SelectTable,
-    NormalizeColumn,
     JoinTables
 )
 from prompt import PromptTemplate
@@ -176,17 +175,12 @@ class Agent:
                     table_name = table_info.get("table_name", "")
                     columns = table_info.get("columns", [])
                     
-                    # Create a dictionary of column names to empty lists
-                    data = {}
-                    for col in columns:
-                        data[col] = []
-                    
                     # Extract data from table_column_priority
                     column_data = {}
                     for col_data in table_info.get("table_column_priority", []):
                         if len(col_data) > 0:
                             col_name = col_data[0]
-                            if col_name in data:
+                            if col_name in columns:
                                 # Skip the first element which is the column name
                                 column_data[col_name] = col_data[1:]
                     
@@ -195,19 +189,29 @@ class Agent:
                     for col, values in column_data.items():
                         max_len = max(max_len, len(values))
                     
-                    # Fill data with values, padding with empty strings if necessary
+                    # If no data found, set max_len to 0 for empty DataFrame
+                    if max_len == 0:
+                        max_len = 0
+                    
+                    # Create data dictionary with proper ordering using columns list
+                    data = {}
                     for col in columns:
                         if col in column_data:
-                            values = column_data[col]
+                            values = column_data[col][:]  # Create a copy
                             # Pad with empty strings if needed
                             if len(values) < max_len:
-                                values = values + [""] * (max_len - len(values))
+                                values.extend([""] * (max_len - len(values)))
                             data[col] = values
                         else:
                             data[col] = [""] * max_len
                     
-                    # Create DataFrame with the processed data
-                    df = pd.DataFrame(data)
+                    # Create DataFrame using ordered columns to avoid ambiguity
+                    if data and max_len > 0:
+                        df = pd.DataFrame(data, columns=columns)
+                    else:
+                        # Create empty DataFrame with correct columns
+                        df = pd.DataFrame(columns=columns)
+                    
                     result[table_name] = df
                 return result
             
@@ -215,17 +219,12 @@ class Agent:
             else:
                 columns = table_data.get("columns", [])
                 
-                # Create a dictionary of column names to empty lists
-                data = {}
-                for col in columns:
-                    data[col] = []
-                
                 # Extract data from table_column_priority
                 column_data = {}
                 for col_data in table_data.get("table_column_priority", []):
                     if len(col_data) > 0:
                         col_name = col_data[0]
-                        if col_name in data:
+                        if col_name in columns:
                             # Skip the first element which is the column name
                             column_data[col_name] = col_data[1:]
                 
@@ -234,23 +233,37 @@ class Agent:
                 for col, values in column_data.items():
                     max_len = max(max_len, len(values))
                 
-                # Fill data with values, padding with empty strings if necessary
+                # If no data found, set max_len to 0 for empty DataFrame
+                if max_len == 0:
+                    max_len = 0
+                
+                # Create data dictionary with proper ordering using columns list
+                data = {}
                 for col in columns:
                     if col in column_data:
-                        values = column_data[col]
+                        values = column_data[col][:]  # Create a copy
                         # Pad with empty strings if needed
                         if len(values) < max_len:
-                            values = values + [""] * (max_len - len(values))
+                            values.extend([""] * (max_len - len(values)))
                         data[col] = values
                     else:
                         data[col] = [""] * max_len
                 
-                # Create DataFrame with the processed data
-                return pd.DataFrame(data)
+                # Create DataFrame using ordered columns to avoid ambiguity
+                if data and max_len > 0:
+                    return pd.DataFrame(data, columns=columns)
+                else:
+                    # Create empty DataFrame with correct columns
+                    return pd.DataFrame(columns=columns)
                 
         except Exception as e:
             self.logger.warning(f"Error parsing DataFrame: {e}")
-            return {} if "tables" in json.loads(table_representation) else pd.DataFrame()
+            try:
+                # Try to determine if it was multi-table format for proper fallback
+                fallback_data = json.loads(table_representation)
+                return {} if "tables" in fallback_data else pd.DataFrame()
+            except:
+                return pd.DataFrame()
 
     async def dynamic_plan(self, tables_representation, question, chain, metadata):
         actions_description = self.get_actions_descritption()
@@ -315,7 +328,7 @@ class Agent:
                 match = re.search(r"(\w+)\(", text_action)
                 action = match.group(1) if match else "No answer found"
                 try:
-                    return self.get_action[action]
+                    return self.get_action(action)
                 except KeyError:
                     pass
             return EndOperation
@@ -411,8 +424,6 @@ class Agent:
         # Select appropriate template based on operation type
         if isinstance(f, SelectTable):
             template_name = "generate_args_f_select_table"
-        elif isinstance(f, NormalizeColumn):
-            template_name = "generate_args_f_normalize_column"
         elif isinstance(f, JoinTables):
             template_name = "generate_args_f_join_tables"
         else:
@@ -495,9 +506,6 @@ class Agent:
             if isinstance(f, SelectTable):
                 matches = [re.search(r'f_select_table\(\[(.*?)\]\)', x) for x in generated_texts]
                 args = self.parse_table_selection_args(matches)
-            elif isinstance(f, NormalizeColumn):
-                matches = [re.search(r'f_normalize_column\(\'(.*?)\', \[(.*?)\]\)', x) for x in generated_texts]
-                args = self.parse_normalize_column_args(matches)
             elif isinstance(f, JoinTables):
                 matches = [re.search(r'f_join_tables\(\'(.*?)\', \'(.*?)\', \'(.*?)\', \'(.*?)\'\)', x) for x in generated_texts]
                 args = self.parse_join_tables_args(matches)
@@ -532,33 +540,7 @@ class Agent:
             self.logger.warning("No valid table selection arguments found")
             return []
         
-    def parse_normalize_column_args(self, matches):
-        """Parse arguments for f_normalize_column operation"""
-        valid_matches = [(m.group(1), m.group(2)) for m in matches if m]
-        if not valid_matches:
-            return []
-            
-        try:
-            # Get most common pattern
-            counter = Counter(valid_matches)
-            (target_name, mappings_str), _ = counter.most_common(1)[0]
-                
-            # Parse mappings
-            result = [target_name]
-            mappings_list = mappings_str.split(",")
-            for mapping in mappings_list:
-                mapping = mapping.strip()
-                if mapping:
-                    # Extract table and column names
-                    match = re.search(r'\[\'(.*?)\', \'(.*?)\'\]', mapping)
-                    if match:
-                        table_name, column_name = match.group(1), match.group(2)
-                        result.append([table_name, column_name])
-                        
-            return result
-        except IndexError:
-            self.logger.warning("No valid normalize column arguments found")
-            return []
+
         
     def parse_join_tables_args(self, matches):
         """Parse arguments for f_join_tables operation"""
@@ -636,7 +618,11 @@ class Agent:
         """
         # Convert single DataFrame to dictionary if needed
         if isinstance(tables, pd.DataFrame):
-            tables = {"main_table": tables}
+            tables = {"main_table": tables.copy()}
+        else:
+            # Ensure all values are DataFrames
+            tables = {name: df.copy() if isinstance(df, pd.DataFrame) else pd.DataFrame(df) 
+                     for name, df in tables.items()}
             
         f = BeginOperation()
         chain = Chain([f])

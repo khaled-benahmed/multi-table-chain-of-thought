@@ -42,11 +42,26 @@ class OperationExample:
     explaination: str
 
     def __str__(self) -> str:
-        return (
-            f"For example,\n/*\n{pd.DataFrame(self.data).to_csv()}*/\n"
-            f"Question : {self.question}\nFunction: {self.function}\n"
-            f"Explanation: {self.explaination}"
-        )
+        try:
+            # Safely create DataFrame with proper column ordering
+            if isinstance(self.data, dict) and self.data:
+                columns = list(self.data.keys())
+                df = pd.DataFrame(self.data, columns=columns)
+            else:
+                df = pd.DataFrame(self.data)
+            
+            return (
+                f"For example,\n/*\n{df.to_csv()}*/\n"
+                f"Question : {self.question}\nFunction: {self.function}\n"
+                f"Explanation: {self.explaination}"
+            )
+        except Exception as e:
+            # Fallback to a simple string representation if DataFrame creation fails
+            return (
+                f"For example,\n/*\n{str(self.data)}*/\n"
+                f"Question : {self.question}\nFunction: {self.function}\n"
+                f"Explanation: {self.explaination}"
+            )
 
 
 class SelectColumn(Operation):
@@ -58,11 +73,44 @@ class SelectColumn(Operation):
     generation_params = {"do_sample": True, "temperature": 1.0, "n_samples": 8}
 
     def perform(self, dataframe):
-        return dataframe[self.args]
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table, apply the operation to that table
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+                result = df[self.args]
+                return {table_name: result}
+            else:
+                # Apply to the main table if it exists, otherwise return unmodified
+                if "main_table" in dataframe:
+                    df = dataframe["main_table"]
+                    result = df[self.args]
+                    return {"main_table": result}
+                else:
+                    return dataframe
+        else:
+            # Standard single DataFrame case
+            return dataframe[self.args]
 
     def get_allowed_args_pattern(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use its columns
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a default pattern
+                return r"Explanation: .*\nAnswer: f_select_column\(\[[^\]]*\]\)"
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+            
         columns_pattern = "|".join(
-            f'"{re.escape(column)}"' for column in dataframe.columns.tolist()
+            f'"{re.escape(column)}"' for column in df.columns.tolist()
         )
         regex_pattern = rf"Explanation: .*\nAnswer: f_select_column\(\[({columns_pattern})(, ({columns_pattern}))*\]\)"
         return regex_pattern
@@ -95,13 +143,37 @@ class SelectColumn(Operation):
 
 
     def get_json_schema(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use its columns
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a basic schema
+                return {
+                    "type": "object",
+                    "properties": {
+                        "columns": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        }
+                    },
+                    "required": ["columns"]
+                }
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
         # Allowed columns are those present in the DataFrame.
         return {
             "type": "object",
             "properties": {
                 "columns": {
                     "type": "array",
-                    "items": {"type": "string", "enum": list(dataframe.columns)}
+                    "items": {"type": "string", "enum": list(df.columns)}
                 }
             },
             "required": ["columns"]
@@ -113,11 +185,46 @@ class SelectRow(Operation):
     generation_params = {"do_sample": True, "temperature": 1.0, "n_samples": 8}
 
     def perform(self, dataframe):
-        row_nr = [i - 1 for i in self.args]
-        return dataframe.iloc[row_nr]
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table, apply the operation to that table
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+                row_nr = [i - 1 for i in self.args]
+                result = df.iloc[row_nr]
+                return {table_name: result}
+            else:
+                # Apply to the main table if it exists, otherwise return unmodified
+                if "main_table" in dataframe:
+                    df = dataframe["main_table"]
+                    row_nr = [i - 1 for i in self.args]
+                    result = df.iloc[row_nr]
+                    return {"main_table": result}
+                else:
+                    return dataframe
+        else:
+            # Standard single DataFrame case
+            row_nr = [i - 1 for i in self.args]
+            return dataframe.iloc[row_nr]
 
     def get_allowed_args_pattern(self, dataframe):
-        number_parts = [str(i) for i in range(1, len(dataframe) + 1)]
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use it
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a default pattern
+                return r"Explanation: .*\nAnswer: f_select_row\(\[[^\]]*\]\)"
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
+        number_parts = [str(i) for i in range(1, len(df) + 1)]
         number_pattern = "|".join(number_parts)
         # Create the full regex pattern
         regex_pattern = rf"Explanation: .*\nAnswer: f_select_row\(\[({number_pattern})(, ({number_pattern}))*\]\)"
@@ -151,6 +258,30 @@ class SelectRow(Operation):
 
 
     def get_json_schema(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use it
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a basic schema
+                return {
+                    "type": "object",
+                    "properties": {
+                        "rows": {
+                            "type": "array",
+                            "items": {"type": "integer", "minimum": 0}
+                        }
+                    },
+                    "required": ["rows"]
+                }
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
         return {
             "type": "object",
             "properties": {
@@ -159,7 +290,7 @@ class SelectRow(Operation):
                     "items": {
                         "type": "integer",
                         "minimum": 0,
-                        "maximum": len(dataframe) - 1
+                        "maximum": len(df) - 1
                     }
                 }
             },
@@ -211,21 +342,101 @@ class AddColumn(Operation):
         return f"{instruction} {example}"
 
     def get_allowed_args_pattern(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use it
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a default pattern
+                return rf'Explanation: .*\nAnswer: f_add_column\(\["[^"]+", "[^"]+"\]\)'
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
         regex_pattern = (
             rf'Explanation: .*\nAnswer: f_add_column\(\["[^"]+", "(\s*\d+ \| .+? \\n)"'
-            rf'{{{len(dataframe) - 1}}}(\s*\d+ \| [^|]+?)"\]\)'
+            rf'{{{len(df) - 1}}}(\s*\d+ \| [^|]+?)"\]\)'
         )
         return regex_pattern
 
     def perform(self, dataframe):
-        row_name = self.args[0]
-        rows = self.args[1].split("\n")
-        data = [row.split("|") for row in rows]
-        added_df = pd.DataFrame(data, columns=["ID", row_name])
-        dataframe[row_name] = added_df[row_name]
-        return dataframe
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table, apply the operation to that table
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+                
+                row_name = self.args[0]
+                if isinstance(self.args[1], list):  # Handle JSON format
+                    df[row_name] = self.args[1]
+                else:  # Handle string format
+                    rows = self.args[1].split("\n")
+                    data = [row.split("|") for row in rows]
+                    added_df = pd.DataFrame(data, columns=["ID", row_name])
+                    df[row_name] = added_df[row_name]
+                
+                return {table_name: df}
+            else:
+                # Apply to the main table if it exists, otherwise return unmodified
+                if "main_table" in dataframe:
+                    df = dataframe["main_table"]
+                    
+                    row_name = self.args[0]
+                    if isinstance(self.args[1], list):  # Handle JSON format
+                        df[row_name] = self.args[1]
+                    else:  # Handle string format
+                        rows = self.args[1].split("\n")
+                        data = [row.split("|") for row in rows]
+                        added_df = pd.DataFrame(data, columns=["ID", row_name])
+                        df[row_name] = added_df[row_name]
+                    
+                    return {"main_table": df}
+                else:
+                    return dataframe
+        else:
+            # Standard single DataFrame case
+            row_name = self.args[0]
+            if isinstance(self.args[1], list):  # Handle JSON format
+                dataframe[row_name] = self.args[1]
+            else:  # Handle string format
+                rows = self.args[1].split("\n")
+                data = [row.split("|") for row in rows]
+                added_df = pd.DataFrame(data, columns=["ID", row_name])
+                dataframe[row_name] = added_df[row_name]
+            
+            return dataframe
 
     def get_json_schema(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use it
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a basic schema
+                return {
+                    "type": "object",
+                    "properties": {
+                        "column_name": {"type": "string"},
+                        "values": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        }
+                    },
+                    "required": ["column_name", "values"]
+                }
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
         # For AddColumn, we expect a column name and a list of values (one per row).
         return {
             "type": "object",
@@ -234,8 +445,8 @@ class AddColumn(Operation):
                 "values": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "minItems": len(dataframe),
-                    "maxItems": len(dataframe)
+                    "minItems": len(df),
+                    "maxItems": len(df)
                 }
             },
             "required": ["column_name", "values"]
@@ -265,8 +476,23 @@ class SortBy(Operation):
         return f"{instruction} {example}"
 
     def get_allowed_args_pattern(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use it
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a default pattern
+                return r"Explanation: .*\nAnswer: f_sort_by\(\[[^\]]*\], '(ascending|descending)'\)"
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
         columns_pattern = "|".join(
-            f'"{re.escape(column)}"' for column in dataframe.columns.tolist()
+            f'"{re.escape(column)}"' for column in df.columns.tolist()
         )
         regex_pattern = (
             rf"Explanation: .*\nAnswer: f_sort_by\(\[\[({columns_pattern})(, ({columns_pattern}))*\], "
@@ -275,15 +501,59 @@ class SortBy(Operation):
         return regex_pattern
 
     def perform(self, dataframe):
-        by = self.args[0]
-        ascending = True if self.args[1] == "ascending" else False
-        return dataframe.sort_values(by, ascending=ascending)
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table, apply the operation to that table
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+                by = self.args[0]
+                ascending = True if self.args[1] == "ascending" else False
+                result = df.sort_values(by, ascending=ascending)
+                return {table_name: result}
+            else:
+                # Apply to the main table if it exists, otherwise return unmodified
+                if "main_table" in dataframe:
+                    df = dataframe["main_table"]
+                    by = self.args[0]
+                    ascending = True if self.args[1] == "ascending" else False
+                    result = df.sort_values(by, ascending=ascending)
+                    return {"main_table": result}
+                else:
+                    return dataframe
+        else:
+            # Standard single DataFrame case
+            by = self.args[0]
+            ascending = True if self.args[1] == "ascending" else False
+            return dataframe.sort_values(by, ascending=ascending)
 
     def get_json_schema(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use it
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a basic schema
+                return {
+                    "type": "object",
+                    "properties": {
+                        "column": {"type": "string"},
+                        "order": {"type": "string", "enum": ["ascending", "descending"]}
+                    },
+                    "required": ["column", "order"]
+                }
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
         return {
             "type": "object",
             "properties": {
-                "column": {"type": "string", "enum": list(dataframe.columns)},
+                "column": {"type": "string", "enum": list(df.columns)},
                 "order": {"type": "string", "enum": ["ascending", "descending"]}
             },
             "required": ["column", "order"]
@@ -318,23 +588,80 @@ class GroupBy(Operation):
         return f"{instruction} {example}"
     
     def get_allowed_args_pattern(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use it
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a default pattern
+                return r"Explanation: .*\nAnswer: f_group_by\(\[[^\]]*\]\)"
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
         columns_pattern = "|".join(
-            f'"{re.escape(column)}"' for column in dataframe.columns.tolist()
+            f'"{re.escape(column)}"' for column in df.columns.tolist()
         )
         regex_pattern = rf"Explanation: .*\nAnswer: f_group_by\(\[({columns_pattern})(, ({columns_pattern}))*\]\)"
         return regex_pattern
 
     def perform(self, dataframe):
-        result = dataframe.groupby(by=self.args).count()
-        return result
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table, apply the operation to that table
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+                result = df.groupby(by=self.args).count()
+                return {table_name: result}
+            else:
+                # Apply to the main table if it exists, otherwise return unmodified
+                if "main_table" in dataframe:
+                    df = dataframe["main_table"]
+                    result = df.groupby(by=self.args).count()
+                    return {"main_table": result}
+                else:
+                    return dataframe
+        else:
+            # Standard single DataFrame case
+            result = dataframe.groupby(by=self.args).count()
+            return result
 
     def get_json_schema(self, dataframe):
+        # Handle multiple tables case
+        if isinstance(dataframe, dict):
+            # If there's only one table or a main_table exists, use it
+            if len(dataframe) == 1:
+                table_name = next(iter(dataframe.keys()))
+                df = dataframe[table_name]
+            elif "main_table" in dataframe:
+                df = dataframe["main_table"]
+            else:
+                # No clear target table, return a basic schema
+                return {
+                    "type": "object",
+                    "properties": {
+                        "columns": {
+                            "type": "array",
+                            "items": {"type": "string"}
+                        }
+                    },
+                    "required": ["columns"]
+                }
+        else:
+            # Standard single DataFrame case
+            df = dataframe
+        
         return {
             "type": "object",
             "properties": {
                 "columns": {
                     "type": "array",
-                    "items": {"type": "string", "enum": list(dataframe.columns)}
+                    "items": {"type": "string", "enum": list(df.columns)}
                 }
             },
             "required": ["columns"]
@@ -417,102 +744,6 @@ class SelectTable(Operation):
             "required": ["tables"]
         }
 
-
-class NormalizeColumn(Operation):
-    """Operation to normalize column names across tables to align them."""
-    name = "f_normalize_column"
-    description = "Normalizes column names across tables to align similar columns."
-    
-    generation_params = {"do_sample": True, "temperature": 0.5, "n_samples": 5}
-    
-    def perform(self, tables_dict):
-        """
-        Normalize specified columns across tables.
-        
-        Args:
-            tables_dict: Dictionary of table_name -> DataFrame
-            
-        Returns:
-            Updated dictionary with normalized columns
-        """
-        if not self.args or len(self.args) < 2:
-            return tables_dict
-        
-        mappings = {}
-        target_name = self.args[0]
-        
-        # Parse the mappings from args
-        # Format: [target_name, [table1, col1], [table2, col2], ...]
-        for mapping in self.args[1:]:
-            if isinstance(mapping, list) and len(mapping) == 2:
-                table_name, column_name = mapping
-                mappings[table_name] = column_name
-        
-        # Rename columns in tables
-        updated_tables = {}
-        for table_name, df in tables_dict.items():
-            if table_name in mappings:
-                col_name = mappings[table_name]
-                if col_name in df.columns:
-                    updated_df = df.copy()
-                    updated_df = updated_df.rename(columns={col_name: target_name})
-                    updated_tables[table_name] = updated_df
-                else:
-                    updated_tables[table_name] = df
-            else:
-                updated_tables[table_name] = df
-                
-        return updated_tables
-    
-    def documentation(self):
-        instruction = (
-            "When working with multiple tables that have different column names representing the same concept, "
-            "we use f_normalize_column() to standardize these columns to a common name."
-        )
-        
-        example = OperationExample(
-            data={
-                "table_names": ["population_table", "economic_table"],
-                "population_table": pd.DataFrame({
-                    "Nation": ["USA", "Canada", "Japan"],
-                    "Population": [331, 38, 125]
-                }).to_dict(),
-                "economic_table": pd.DataFrame({
-                    "Country Name": ["USA", "Canada", "Japan", "Germany"],
-                    "GDP": [21000, 1800, 5000, 4000]
-                }).to_dict()
-            },
-            question="Compare the GDP and population of Japan.",
-            function="f_normalize_column('Country', ['population_table', 'Nation'], ['economic_table', 'Country Name'])",
-            explaination=(
-                "To join these tables for comparison, we need to normalize the country name columns. "
-                "In population_table, the column is called 'Nation', and in economic_table, it's called 'Country Name'. "
-                "We standardize both to the common name 'Country'."
-            )
-        )
-        
-        return f"{instruction} {example}"
-    
-    def get_json_schema(self, tables_dict):
-        properties = {
-            "target_name": {"type": "string"},
-            "mappings": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "table_name": {"type": "string", "enum": list(tables_dict.keys())},
-                        "column_name": {"type": "string"}
-                    },
-                    "required": ["table_name", "column_name"]
-                }
-            }
-        }
-        return {
-            "type": "object",
-            "properties": properties,
-            "required": ["target_name", "mappings"]
-        }
 
 
 class JoinTables(Operation):
@@ -677,7 +908,6 @@ class Chain:
         function_chain3 = Chain([
             BeginOperation(),
             SelectTable(["population_data", "gdp_data"]),
-            NormalizeColumn(["Country", ["gdp_data", "Nation"]]),
             JoinTables(["population_data", "gdp_data", "Country", "combined_data"]),
             SelectColumn(["Country", "Population", "GDP"]),
             EndOperation(),
@@ -720,8 +950,7 @@ class Chain:
             f"{example4}\n"
         )
 
-    # Updated transition map to prioritize SelectTable as the first operation and 
-    # remove AggregateTable and FilterTable
+    # Updated transition map to prioritize SelectTable as the first operation for multi-table workflows
     possible_next_operation_dict = {
         BeginOperation: [
             SelectTable,  # For multi-table scenarios, start by selecting relevant tables
@@ -732,17 +961,10 @@ class Chain:
             SortBy,
         ],
         SelectTable: [
-            NormalizeColumn,  # After selecting tables, normalize columns if needed
-            JoinTables,       # Or directly join if columns already aligned
+            JoinTables,       # Directly join if columns are aligned
             SelectColumn,     # Or select relevant columns from specific tables
             SelectRow,        # Or select specific rows
             EndOperation,     # If only table selection was needed
-        ],
-        NormalizeColumn: [
-            JoinTables,      # After normalizing, typically join the tables
-            SelectColumn,    # Or select specific columns
-            SelectRow,       # Or select specific rows
-            EndOperation,    # If normalization was the main operation needed
         ],
         JoinTables: [
             SelectColumn,    # Or select specific columns
@@ -794,7 +1016,19 @@ class OperationChainExample:
             # Multi-table scenario
             tables_str = ""
             for table_name, table_data in self.data.items():
-                tables_str += f"Table {table_name}:\n{pd.DataFrame(table_data).to_csv()}\n"
+                if table_name != "table_names":  # Skip the metadata entry
+                    try:
+                        # Safely create DataFrame with proper column ordering
+                        if isinstance(table_data, dict) and table_data:
+                            # Get column names for proper ordering
+                            columns = list(table_data.keys())
+                            df = pd.DataFrame(table_data, columns=columns)
+                        else:
+                            df = pd.DataFrame(table_data)
+                        tables_str += f"Table {table_name}:\n{df.to_csv()}\n"
+                    except Exception as e:
+                        # Fallback to a simple string representation if DataFrame creation fails
+                        tables_str += f"Table {table_name}:\n{str(table_data)}\n"
             return (
                 f"\\*\n{tables_str}*/\n"
                 f"Question: {self.question}\n"
@@ -802,8 +1036,22 @@ class OperationChainExample:
             )
         else:
             # Single table scenario
-            return (
-                f"\\*\n{pd.DataFrame(self.data).to_csv()}*/\n"
-                f"Question: {self.question}\n"
-                f"Function Chain: {str(self.function_chain)}\n"
-            )
+            try:
+                # Safely create DataFrame with proper column ordering
+                if isinstance(self.data, dict) and self.data:
+                    columns = list(self.data.keys())
+                    df = pd.DataFrame(self.data, columns=columns)
+                else:
+                    df = pd.DataFrame(self.data)
+                return (
+                    f"\\*\n{df.to_csv()}*/\n"
+                    f"Question: {self.question}\n"
+                    f"Function Chain: {str(self.function_chain)}\n"
+                )
+            except Exception as e:
+                # Fallback to a simple string representation if DataFrame creation fails
+                return (
+                    f"\\*\n{str(self.data)}*/\n"
+                    f"Question: {self.question}\n"
+                    f"Function Chain: {str(self.function_chain)}\n"
+                )

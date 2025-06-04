@@ -152,7 +152,7 @@ def save_config(log_directory):
         print(f"Failed to fetch server config: {e}")
 
 async def main():
-    dataset = load_dataset("wikitablequestions")
+    dataset = load_dataset("Stanford/wikitablequestions")
     
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     log_directory = f"Experiments/{current_time}"
